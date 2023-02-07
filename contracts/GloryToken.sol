@@ -65,22 +65,23 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
         address to,
         uint256 amount
     ) public virtual override returns (bool){
-        if (dexes[from]) {
-            uint256 balanceOf = super.balanceOf(from);
-            require(amount <= balanceOf, "Balance not enough");
-            uint256 amountTransfer = amount.mul(99).div(100);
-            uint256 amountFee = amount.sub(amountTransfer);
-            super.transfer(address(this), amountFee);
-            return super.transferFrom(from, to, amountTransfer);
-        } else if (dexes[to]) {
-            uint256 balanceOf = super.balanceOf(from);
-            uint256 amountFee = amount.div(100);
-            require(amount.add(amountFee) <= balanceOf, "Balance not enough");
-            super.transfer(address(this), amountFee);
-            return super.transferFrom(from, to, amount);
+        if (dexes[from] || dexes[to]) {
+            return _receiveToken(from, to, amount);
         } else {
             return super.transferFrom(from, to, amount);
         }
+    }
+
+
+    function _receiveToken(address from,
+        address to,
+        uint256 amount) private returns (bool){
+        uint256 balanceOf = super.balanceOf(from);
+        require(amount <= balanceOf, "Balance not enough");
+        uint256 amountTransfer = amount.mul(99).div(100);
+        uint256 amountFee = amount.sub(amountTransfer);
+        super.transfer(address(this), amountFee);
+        return super.transferFrom(from, to, amountTransfer);
     }
 
 
