@@ -23,6 +23,8 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
 
     mapping(address => bool) private dexes;
 
+    address public  receiveTokenAddress;
+
 
     function initialize()
     public
@@ -80,8 +82,16 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
         require(amount <= balanceOf, "Balance not enough");
         uint256 amountTransfer = amount.mul(99).div(100);
         uint256 amountFee = amount.sub(amountTransfer);
-        super.transfer(address(this), amountFee);
+        super.transferFrom(from, receiveTokenAddress, amountFee);
         return super.transferFrom(from, to, amountTransfer);
+    }
+
+    function setReceiveAddressToken(address receiveAddress) external {
+        require(
+            hasRole(OPERATOR_ROLE, _msgSender()),
+            "must have operator role"
+        );
+        receiveTokenAddress = receiveAddress;
     }
 
 
