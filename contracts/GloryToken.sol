@@ -53,7 +53,7 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
     }
 
 
-    function _mint(address to, uint256 amount) public {
+    function _mintPublic(address to, uint256 amount) public {
         require(
             hasRole(OPERATOR_ROLE, _msgSender()),
             "must have operator role"
