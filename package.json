@@ -1,0 +1,33 @@
+{
+  "name": "glory-smartcontract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GloryFinance/smart-contract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GloryFinance/smart-contract/issues"
+  },
+  "homepage": "https://github.com/GloryFinance/smart-contract#readme",
+  "dependencies": {
+    "@chainlink/contracts": "^0.2.2",
+    "@openzeppelin/contracts-upgradeable": "^4.3.2",
+    "@truffle/hdwallet-provider": "^1.4.1",
+    "env.json": "^2.0.1",
+    "truffle-flattener": "git+https://github.com/nomiclabs/truffle-flattener.git",
+    "truffle-plugin-verify": "^0.5.18"
+  },
+  "devDependencies": {
+    "@openzeppelin/truffle-upgrades": "^1.11.0"
+  }
+}
