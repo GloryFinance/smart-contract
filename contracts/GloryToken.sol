@@ -25,6 +25,7 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
 
     address public  receiveTokenAddress;
 
+    bool public teamMinted;
 
     function initialize()
     public
@@ -43,12 +44,13 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
     }
 
     function mintToTeam(address to) public {
+        require(!teamMinted, "Team minted");
         require(
             hasRole(OPERATOR_TEAM, _msgSender()),
             "must have operator role"
         );
         require(block.timestamp >= TIME_MINT_TO_TEAM, "Time mint invalid");
-
+        teamMinted = true;
         mint(to, MAX_SUPPLY_TEAM);
     }
 
