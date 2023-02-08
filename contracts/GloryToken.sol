@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
 
-contract GloryToken is ERC20PresetMinterPauserUpgradeable {
-    using SafeMathUpgradeable for uint256;
+contract GloryToken is ERC20PresetMinterPauser {
+    using SafeMath for uint256;
 
     uint256 public constant  MAX_SUPPLY = 150000000 * 10 ** 18;
 
@@ -27,11 +27,8 @@ contract GloryToken is ERC20PresetMinterPauserUpgradeable {
 
     bool public teamMinted;
 
-    function initialize()
-    public
-    initializer
-    {
-        __ERC20PresetMinterPauser_init("Glory", "GLR");
+    constructor() ERC20PresetMinterPauser("Glory", "GLR") {
+        
     }
 
     function mint(address to, uint256 amount) public virtual override {

@@ -29,6 +29,13 @@ module.exports = {
       skipDryRun: true,
       gasPrice: 20000000000
     },
+    ganache: {
+      provider: () => new HDWalletProvider(privateKeyTestnet, `http://localhost:7545/`),
+      network_id: 5777,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+      gasPrice: 20000000000
+    },
   },
   mocha: {},
   compilers: {
