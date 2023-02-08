@@ -18,7 +18,6 @@ contract("GloryToken", (accounts) => {
         await GloryTokenInstance.setReceiveFeeAddress(accounts[4]);
         //Send 1000 token to dex / Simulate sell transaction
         await GloryTokenInstance.transfer(accounts[3], web3.utils.toBN("1000000000000000000000"));
-        console.log(await GloryTokenInstance.balanceOf(accounts[3]))
         //The 'dex' address should have 99%
         assert.equal((await GloryTokenInstance.balanceOf(accounts[3])).toString(), "990000000000000000000", "The 'dex' address hasn't received 99% token yet");
         //The receving fee address should receive 1% token
