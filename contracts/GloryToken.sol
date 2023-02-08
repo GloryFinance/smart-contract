@@ -21,14 +21,15 @@ contract GloryToken is ERC20PresetMinterPauser {
 
     bytes32 public constant OPERATOR_TEAM = keccak256("OPERATOR_TEAM");
 
-    mapping(address => bool) private dexes;
+    mapping(address => bool) public dexes;
 
-    address public  receiveTokenAddress;
+    address public  receiveFeeAddress;
 
     bool public teamMinted;
 
     constructor() ERC20PresetMinterPauser("Glory", "GLR") {
-        
+        grantRole(OPERATOR_ROLE, msg.sender);
+        receiveFeeAddress = msg.sender;
     }
 
     function mint(address to, uint256 amount) public virtual override {
@@ -61,36 +62,32 @@ contract GloryToken is ERC20PresetMinterPauser {
         mint(to, amount);
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public virtual override returns (bool){
-        if (dexes[from] || dexes[to]) {
-            return _receiveToken(from, to, amount);
+    function _transfer(address sender, address receiver, uint256 amount) internal virtual override {
+        if (dexes[sender] || dexes[receiver]) {
+            _receiveToken(sender, receiver, amount);
         } else {
-            return super.transferFrom(from, to, amount);
+            _transfer(sender, receiver, amount);
         }
     }
 
 
     function _receiveToken(address from,
         address to,
-        uint256 amount) private returns (bool){
+        uint256 amount) private {
         uint256 balanceOf = super.balanceOf(from);
         require(amount <= balanceOf, "Balance not enough");
         uint256 amountTransfer = amount.mul(99).div(100);
         uint256 amountFee = amount.sub(amountTransfer);
-        super.transferFrom(from, receiveTokenAddress, amountFee);
-        return super.transferFrom(from, to, amountTransfer);
+        super._transfer(from, receiveFeeAddress, amountFee);
+        super._transfer(from, to, amountTransfer);
     }
 
-    function setReceiveAddressToken(address receiveAddress) external {
+    function setReceiveFeeAddress(address _receiveFeeAddress) external {
         require(
             hasRole(OPERATOR_ROLE, _msgSender()),
             "must have operator role"
         );
-        receiveTokenAddress = receiveAddress;
+        receiveFeeAddress = _receiveFeeAddress;
     }
 
 
