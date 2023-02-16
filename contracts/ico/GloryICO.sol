@@ -355,7 +355,7 @@ contract GloryICO is Initializable, ContextUpgradeable, OwnableUpgradeable {
         emit ConfirmTransaction(msg.sender, _txIndex);
     }
 
-    function getRemainIcoTokenAmount() external returns (uint256){
+    function getRemainIcoTokenAmount() view external returns (uint256){
         return remainIcoTokenAmount;
     }
 
