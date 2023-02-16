@@ -60,7 +60,7 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
     }
 
     function mintPublic(address to, uint256 amount) public onlyOperator{
-        require(super.totalSupply() + amount <= MAX_SUPPLY_PUBLIC, "Total supply over max supply public");
+        require(totalSupply() + amount <= MAX_SUPPLY_PUBLIC, "Total supply over max supply public");
         super._mint(to, amount);
     }
 
