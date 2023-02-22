@@ -3,3 +3,4 @@ build/
 .private_key.mainnet
 .private_key.testnet
 .openzeppelin/
+.env
