@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "../interface/IERC20UpgradeableGlory.sol";
 
-
 library SafeERC20UpgradeableGlory {
     using AddressUpgradeable for address;
 

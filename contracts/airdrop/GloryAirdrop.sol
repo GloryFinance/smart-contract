@@ -8,13 +8,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../interface/IERC20UpgradeableGlory.sol";
 import "../libs/SafeERC20UpgradeableGlory.sol";
 
-
-
-contract GloryAirdrop is
-Initializable,
-ContextUpgradeable,
-OwnableUpgradeable
-{
+contract GloryAirdrop is Initializable, ContextUpgradeable, OwnableUpgradeable {
     using SafeERC20UpgradeableGlory for IERC20UpgradeableGlory;
     IERC20UpgradeableGlory public tokenGlory;
 
@@ -54,10 +48,10 @@ OwnableUpgradeable
         _;
     }
 
-    function transferAirdrops(Airdrop[] memory arrAirdrop, uint256 totalAmount)
-    external
-    onlyOperator
-    {
+    function transferAirdrops(
+        Airdrop[] memory arrAirdrop,
+        uint256 totalAmount
+    ) external onlyOperator {
         for (uint256 i = 0; i < arrAirdrop.length; i++) {
             tokenGlory.transfer(
                 arrAirdrop[i].userAddress,
