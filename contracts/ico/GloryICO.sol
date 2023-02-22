@@ -188,6 +188,10 @@ contract GloryICO is
         statusData.distributeTime = _distributeTime;
     }
 
+    function updateGloryAddress(address _gloryToken) external onlyOwner {
+        glory = IERC20Upgradeable(_gloryToken);
+    }
+
     function isWhitelistWinner(
         bytes32[] calldata _merkleProof,
         address _user
