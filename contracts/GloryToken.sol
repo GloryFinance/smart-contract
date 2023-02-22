@@ -32,6 +32,8 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
 
     event DexAddressRemoved(address dexAddress);
 
+    event FeeAddressUpdated(address newFeeAddress);
+
     modifier onlyOperator {
       require(hasRole(OPERATOR_ROLE, _msgSender()), "Must have OPERATOR_ROLE role");
       _;
@@ -57,12 +59,12 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
         require(!teamMinted, "Team minted");
         require(block.timestamp >= TIME_MINT_TO_TEAM, "Time mint invalid");
         teamMinted = true;
-        super._mint(to, MAX_SUPPLY_TEAM);
+        _mint(to, MAX_SUPPLY_TEAM);
     }
 
     function mintPublic(address to, uint256 amount) public onlyOperator{
         require(totalSupply() + amount <= MAX_SUPPLY_PUBLIC, "Total supply over max supply public");
-        super._mint(to, amount);
+        _mint(to, amount);
     }
 
     function _transfer(address sender, address receiver, uint256 amount) internal virtual override {
@@ -88,6 +90,7 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
     function setReceiveFeeAddress(address _receiveFeeAddress) external onlyOperator{
         require(_receiveFeeAddress != address(0),"Receive fee addresses cannot be zero address");
         receiveFeeAddress = _receiveFeeAddress;
+        emit FeeAddressUpdated(_receiveFeeAddress);
     }
 
 
