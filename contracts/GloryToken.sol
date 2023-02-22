@@ -42,8 +42,12 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
     }
 
     constructor() ERC20("Glory", "GLR") {
-        grantRole(OPERATOR_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(OPERATOR_ROLE, msg.sender);
         receiveFeeAddress = msg.sender;
+    }
+    function totalSupply() public view override returns (uint256) {
+        return MAX_SUPPLY;
     }
     function pause() public onlyOperator {
         _pause();
@@ -98,6 +102,6 @@ contract GloryToken is ERC20, ERC20Burnable, Pausable, AccessControl {
         dexes[dex] = false;
         emit DexAddressRemoved(dex);
     }
-
+    
 
 }
