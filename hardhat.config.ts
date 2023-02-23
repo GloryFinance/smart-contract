@@ -25,7 +25,11 @@ module.exports = {
             url: "https://data-seed-prebsc-1-s2.binance.org:8545",
             chainId: 97,
             accounts: [process.env['BSC_TESTNET_PRIVATE_KEY']],
-        }
+        },
+        ganache: {
+            url: "http://127.0.0.1:7545",
+            accounts: {mnemonic: process.env['MNEMONIC']},
+        },
     },
 
     solidity: {
