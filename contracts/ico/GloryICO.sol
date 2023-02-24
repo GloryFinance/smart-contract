@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "hardhat/console.sol";
 
 contract GloryICO is
     Initializable,
@@ -23,8 +24,9 @@ contract GloryICO is
 
     enum Status {
         Register,
+        CloseRegister,
         Purchase,
-        Close,
+        ClosePurchase,
         Distribute,
         NotActive
     }
@@ -37,9 +39,10 @@ contract GloryICO is
 
     struct StatusData {
         uint64 registerTime;
+        uint64 closeRegisterTime;
         uint64 purchaseTime;
-        uint64 closeTime;
-        uint64 distributeTime;
+        uint64 closePurchaseTime;
+        uint256 distributeTime;
     }
 
     /**
@@ -63,13 +66,23 @@ contract GloryICO is
         _;
     }
 
+    modifier onlyCloseRegisterTime() {
+        require(_isCloseRegisterTime(), "only in close register time");
+        _;
+    }
+
+    modifier onlyAfterPurchaseTime() {
+        require(_isAfterPurchaseTime(), "only after whitelist result");
+        _;
+    }
+
     modifier onlyPurchaseTime() {
         require(_isPurchaseTime(), "only in purchase time");
         _;
     }
 
-    modifier onlyCloseTime() {
-        require(_isCloseTime(), "only in close time");
+    modifier onlyClosePurchaseTime() {
+        require(_isClosePurchaseTime(), "only in close purchase time");
         _;
     }
 
@@ -95,10 +108,11 @@ contract GloryICO is
     function registerForWhitelist(
         uint256 _usdAmount
     ) external nonReentrant onlyRegisterTime {
-        require(_usdAmount > minimumDepositAmount, "invalid deposit amount");
+        require(_usdAmount >= minimumDepositAmount, "invalid register amount");
         address userAddress = msg.sender;
         usdt.safeTransferFrom(userAddress, address(this), _usdAmount);
         userInfos[userAddress].depositedAmount += _usdAmount;
+        require(userInfos[userAddress].depositedAmount <= maximumDepositAmount, "over maximum deposit amount");
         emit Registered(userAddress, _usdAmount);
     }
 
@@ -124,7 +138,7 @@ contract GloryICO is
 
     function withdraw(
         bytes32[] calldata _merkleProof
-    ) external nonReentrant onlyPurchaseTime {
+    ) external nonReentrant onlyAfterPurchaseTime {
         address userAddress = msg.sender;
         require(
             !isWhitelistWinner(_merkleProof, userAddress),
@@ -136,6 +150,10 @@ contract GloryICO is
         usdt.safeTransfer(userAddress, depositedAmount);
 
         emit Withdraw(userAddress, depositedAmount);
+    }
+
+    function ownerWithdrawFund(address _token, uint256 _amount) external onlyOwner {
+        IERC20Upgradeable(_token).safeTransfer(msg.sender, _amount);
     }
 
     function distributeWhitelist(
@@ -156,19 +174,22 @@ contract GloryICO is
 
     function updateStatusTime(
         uint64 _registerTime,
+        uint64 _closeRegisterTime,
         uint64 _purchaseTime,
-        uint64 _closeTime,
-        uint64 _distributeTime
+        uint64 _closePurchaseTime,
+        uint256 _distributeTime
     ) external onlyOwner {
         require(
-            _distributeTime > _closeTime &&
-                _closeTime > _purchaseTime &&
-                _purchaseTime > _registerTime,
+            _distributeTime > _closePurchaseTime &&
+                _closePurchaseTime > _purchaseTime &&
+                _purchaseTime > _closeRegisterTime &&
+                _closeRegisterTime > _registerTime,
             "invalid time"
         );
         statusData.registerTime = _registerTime;
+        statusData.closeRegisterTime = _closeRegisterTime;
         statusData.purchaseTime = _purchaseTime;
-        statusData.closeTime = _closeTime;
+        statusData.closePurchaseTime = _closePurchaseTime;
         statusData.distributeTime = _distributeTime;
     }
 
@@ -176,15 +197,23 @@ contract GloryICO is
         statusData.registerTime = _registerTime;
     }
 
+    function updateCloseRegisterTime(
+        uint64 _closeRegisterTime
+    ) external onlyOwner {
+        statusData.closeRegisterTime = _closeRegisterTime;
+    }
+
     function updatePurchaseTime(uint64 _purchaseTime) external onlyOwner {
         statusData.purchaseTime = _purchaseTime;
     }
 
-    function updateCloseTime(uint64 _closeTime) external onlyOwner {
-        statusData.closeTime = _closeTime;
+    function updateClosePurchaseTime(
+        uint64 _closePurchaseTime
+    ) external onlyOwner {
+        statusData.closePurchaseTime = _closePurchaseTime;
     }
 
-    function updateDistributeTime(uint64 _distributeTime) external onlyOwner {
+    function updateDistributeTime(uint256 _distributeTime) external onlyOwner {
         statusData.distributeTime = _distributeTime;
     }
 
@@ -218,22 +247,27 @@ contract GloryICO is
         StatusData memory memStatusData = statusData;
         if (
             memStatusData.distributeTime != 0 &&
-            memStatusData.distributeTime > _now()
+            memStatusData.distributeTime < _now()
         ) {
             return Status.Distribute;
-        }
-        if (memStatusData.closeTime != 0 && memStatusData.closeTime > _now()) {
-            return Status.Close;
-        }
-        if (
+        } else if (
+            memStatusData.closePurchaseTime != 0 &&
+            memStatusData.closePurchaseTime < _now()
+        ) {
+            return Status.ClosePurchase;
+        } else if (
             memStatusData.purchaseTime != 0 &&
-            memStatusData.purchaseTime > _now()
+            memStatusData.purchaseTime < _now()
         ) {
             return Status.Purchase;
-        }
-        if (
+        } else if (
+            memStatusData.closeRegisterTime != 0 &&
+            memStatusData.closeRegisterTime < _now()
+        ) {
+            return Status.CloseRegister;
+        } else if (
             memStatusData.registerTime != 0 &&
-            memStatusData.registerTime > _now()
+            memStatusData.registerTime < _now()
         ) {
             return Status.Register;
         }
@@ -244,16 +278,24 @@ contract GloryICO is
         return getStatus() == Status.Register;
     }
 
+    function _isCloseRegisterTime() internal view virtual returns (bool) {
+        return getStatus() == Status.CloseRegister;
+    }
+
     function _isPurchaseTime() internal view virtual returns (bool) {
         return getStatus() == Status.Purchase;
     }
 
-    function _isCloseTime() internal view virtual returns (bool) {
-        return getStatus() == Status.Close;
+    function _isClosePurchaseTime() internal view virtual returns (bool) {
+        return getStatus() == Status.ClosePurchase;
     }
 
     function _isDistributeTime() internal view virtual returns (bool) {
         return getStatus() == Status.Distribute;
+    }
+
+    function _isAfterPurchaseTime() internal view virtual returns (bool) {
+        return _now() > statusData.purchaseTime;
     }
 
     function _now() internal view virtual returns (uint256) {

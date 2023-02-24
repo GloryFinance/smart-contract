@@ -7,7 +7,7 @@ require("@openzeppelin/hardhat-upgrades");
 require("@typechain/hardhat");
 
 module.exports = {
-    defaultNetwork: "bscTestnet",
+    defaultNetwork: "hardhat",
 
     networks: {
         localhost: {

@@ -7,7 +7,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "skipLibCheck": true,
     "typeRoots": ["./typechain", "./node_modules/@types"],
     "types": ["@nomiclabs/hardhat-ethers", "@nomiclabs/hardhat-waffle"]
   },

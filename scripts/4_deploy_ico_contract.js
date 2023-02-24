@@ -12,9 +12,8 @@ async function main() {
     // const upgraded = await upgrades.deployProxy(gloryICO, contractArgs);
     // await upgraded.deployed()
     // console.log('GLORY ICO contract', upgraded.address)
-    // console.log(upgraded)
-    const upgraded = await upgrades.upgradeProxy('0x5031F6B9719B5D0b6E091A5c7d550D4f3FB31134', gloryICO);
-    await verifyContract(upgraded.deployTransaction)
+    const upgraded = await upgrades.upgradeProxy('0x084773494a7345811206aF42A4eBb8b221F44A55', gloryICO);
+    // await verifyContract(upgraded.deployTransaction)
 
 }
 
