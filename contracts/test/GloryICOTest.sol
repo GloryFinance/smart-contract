@@ -16,7 +16,7 @@ contract GloryICOTest is GloryICO {
         mockTimestamp = _mockTimestamp;
     }
 
-    function _now() internal override view returns (uint256) {
+    function _now() internal view override returns (uint256) {
         return mockTimestamp;
     }
 }

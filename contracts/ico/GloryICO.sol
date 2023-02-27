@@ -112,7 +112,10 @@ contract GloryICO is
         address userAddress = msg.sender;
         usdt.safeTransferFrom(userAddress, address(this), _usdAmount);
         userInfos[userAddress].depositedAmount += _usdAmount;
-        require(userInfos[userAddress].depositedAmount <= maximumDepositAmount, "over maximum deposit amount");
+        require(
+            userInfos[userAddress].depositedAmount <= maximumDepositAmount,
+            "over maximum deposit amount"
+        );
         emit Registered(userAddress, _usdAmount);
     }
 
@@ -152,7 +155,10 @@ contract GloryICO is
         emit Withdraw(userAddress, depositedAmount);
     }
 
-    function ownerWithdrawFund(address _token, uint256 _amount) external onlyOwner {
+    function ownerWithdrawFund(
+        address _token,
+        uint256 _amount
+    ) external onlyOwner {
         IERC20Upgradeable(_token).safeTransfer(msg.sender, _amount);
     }
 
