@@ -48,6 +48,8 @@ contract GloryToken is ERC20, Ownable, Pausable {
         super._mint(_receiver, MAX_SUPPLY_TEAM);
     }
 
+    // TODO implement function mint initial token for marketing, liquidity
+
     function mint(address _receiver, uint256 _amount) external onlyTreasury {
         require(
             totalSupply() + _amount <= MAX_SUPPLY_PUBLIC,
@@ -110,7 +112,7 @@ contract GloryToken is ERC20, Ownable, Pausable {
     }
 
     // Owner can drain tokens that are sent here by mistake
-    function transferBEP20Token(
+    function drainBEP20Token(
         IERC20 _token,
         uint256 _amount,
         address _to
