@@ -8,15 +8,19 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 
 contract GloryToken is ERC20, Ownable, Pausable {
     uint256 public constant MAX_SUPPLY = 150_000_000 * 10 ** 18;
-    uint256 public constant MAX_SUPPLY_PUBLIC = 135_000_000 * 10 ** 18;
-    uint256 public constant MAX_SUPPLY_TEAM = 15_000_000 * 10 ** 18;
+    uint256 public constant MAX_COMMUNITY_SUPPLY = 105_000_000 * 10 ** 18;
+    uint256 public constant MAX_TEAM_SUPPLY = 15_000_000 * 10 ** 18;
+    uint256 public constant COMPANY_RESERVE_AMOUNT = 11_250_000 * 10 ** 18;
+    uint256 public constant LIQUIDITY_AMOUNT = 3_375_000 * 10 ** 18;
+    uint256 public constant OG_AIRDROP_AMOUNT = 125_000 * 10 ** 18;
     uint256 public constant AIRDROP_AMOUNT = 250_000 * 10 ** 18;
     uint256 public constant WHITELIST_SALE_AMOUNT = 15_000_000 * 10 ** 18;
 
-    uint256 public constant TIME_MINT_TO_TEAM = 1707238111; //Tue, 06 Feb 2024 16:48:31 GMT
+    uint256 public constant TIME_MINT_TO_TEAM = 1709391066; //Saturday, March 2, 2024 2:51:06 PM GMT
 
     uint256 public aidropDistributed;
     uint256 public whitelistSaleDistributed;
+    uint256 public initialSupplyMinted;
 
     mapping(address => bool) public dexes;
 
@@ -45,17 +49,21 @@ contract GloryToken is ERC20, Ownable, Pausable {
         require(!teamMinted, "Team minted");
         require(block.timestamp >= TIME_MINT_TO_TEAM, "Time mint invalid");
         teamMinted = true;
-        super._mint(_receiver, MAX_SUPPLY_TEAM);
+        _mint(_receiver, MAX_TEAM_SUPPLY);
     }
 
-    // TODO implement function mint initial token for marketing, liquidity
+    // mint initial token for marketing, liquidity and OG airdrop
+    function mintInitialSupply(address _receiver, uint256 _amount) external onlyOwner {
+        require(initialSupplyMinted + _amount <= COMPANY_RESERVE_AMOUNT + LIQUIDITY_AMOUNT + OG_AIRDROP_AMOUNT, "exceeds max initial supply");
+        _mint(_receiver, _amount);
+    }
 
     function mint(address _receiver, uint256 _amount) external onlyTreasury {
         require(
-            totalSupply() + _amount <= MAX_SUPPLY_PUBLIC,
+            totalSupply() + _amount <= MAX_SUPPLY,
             "Total supply over max supply public"
         );
-        super._mint(_receiver, _amount);
+        _mint(_receiver, _amount);
     }
 
     function distributeAirdrop(
@@ -69,13 +77,12 @@ contract GloryToken is ERC20, Ownable, Pausable {
         );
         for (uint i = 0; i < _receivers.length; i++) {
             super._mint(_receivers[i], _value);
-            emit Transfer(address(0), _receivers[i], _value);
         }
     }
 
     function distributeWhitelistSale(
         address _receiver,
-        uint _value
+        uint256 _value
     ) external onlyOwner {
         whitelistSaleDistributed = whitelistSaleDistributed + _value;
         require(
@@ -83,7 +90,6 @@ contract GloryToken is ERC20, Ownable, Pausable {
             "exceeds max whitelist sale amount"
         );
         super._mint(_receiver, _value);
-        emit Transfer(address(0), _receiver, _value);
     }
 
     function setTreasuryAddress(address _newAddress) external onlyOwner {

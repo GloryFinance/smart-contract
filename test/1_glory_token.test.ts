@@ -54,4 +54,29 @@ describe("Glory Token", () => {
         })
     })
 
+    describe("should charge fee when transfer between dex", async () => {
+        it("should charge fee when transfer between dex", async () => {
+            await gloryToken.setTreasuryAddress(user1.address)
+            await gloryToken.connect(user1).mint(user1.address, toWei(200))
+
+            await gloryToken.addDexAddress(deployer.address)
+            await gloryToken.setReceiveFeeAddress(user2.address)
+
+            console.log("before transfer", deployer.address)
+            await gloryToken.connect(user1).transfer(deployer.address, toWei(100))
+
+            expect((await gloryToken.balanceOf(deployer.address)).toString()).eq(toWei(99))
+            expect((await gloryToken.balanceOf(user2.address)).toString()).eq(toWei(1))
+        })
+
+        it("should not charge fee when transfer between normal user", async () => {
+            await gloryToken.setTreasuryAddress(user1.address)
+            await gloryToken.connect(user1).mint(user1.address, toWei(200))
+
+            await gloryToken.connect(user1).transfer(deployer.address, toWei(100))
+
+            expect((await gloryToken.balanceOf(deployer.address)).toString()).eq(toWei(100))
+        })
+    })
+
 })

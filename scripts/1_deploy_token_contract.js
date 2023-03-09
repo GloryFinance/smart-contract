@@ -1,10 +1,13 @@
 const { ethers, upgrades } = require("hardhat");
+const {verifyContract} = require("./utils");
 
 async function main() {
     // Upgrading
-    const gloryToken = await ethers.getContractFactory("GloryToken");
-    const upgraded = await upgrades.upgradeProxy('0x52494055df871991ee5eab38440d36aeb11f2de2', gloryToken);
-    console.log(upgraded)
+    const bep20Mintable = await ethers.getContractFactory("GloryToken");
+    const deployTx = await bep20Mintable.deploy('Glory', 'GLR')
+    await deployTx.deployed()
+    console.log("Glory address", deployTx.address)
+    await verifyContract(deployTx.address, ['GLory', 'GLR'])
 }
 
 main();
