@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-interface IGloryReferral{
-
+interface IGloryReferral {
     /**
      * @dev Record referral.
      */
@@ -11,7 +10,10 @@ interface IGloryReferral{
     /**
      * @dev Record referral commission.
      */
-    function recordReferralCommission(address referrer, uint256 commission) external;
+    function recordReferralCommission(
+        address referrer,
+        uint256 commission
+    ) external;
 
     /**
      * @dev Get the referrer address that referred the user.
@@ -21,5 +23,7 @@ interface IGloryReferral{
     /**
      * @dev Get the referrer total commission.
      */
-    function getReferrerTotalCommission(address referrer) external view returns (uint256);
+    function getReferrerTotalCommission(
+        address referrer
+    ) external view returns (uint256);
 }

@@ -5,14 +5,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IGloryToken.sol";
 
 contract GloryTreasury is Ownable {
-
     address public gloryStakingManager;
     IGloryToken public glory;
 
-    uint256 public maxMintAmount = 3_000_000 * 10**18;
-    uint256 public baseMintAmount = 1_000_000 * 10**18;
+    uint256 public maxMintAmount = 3_000_000 * 10 ** 18;
+    uint256 public baseMintAmount = 1_000_000 * 10 ** 18;
 
-    modifier onlyCounterParty {
+    modifier onlyCounterParty() {
         require(gloryStakingManager == msg.sender, "not authorized");
         _;
     }
@@ -26,7 +25,7 @@ contract GloryTreasury is Ownable {
     }
 
     function mint(address recipient, uint256 amount) public onlyCounterParty {
-        if(myBalance() < amount){
+        if (myBalance() < amount) {
             glory.mint(address(this), baseMintAmount);
         }
         glory.transfer(recipient, amount);
