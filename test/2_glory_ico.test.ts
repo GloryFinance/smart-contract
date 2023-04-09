@@ -3,6 +3,9 @@ import {ethers, waffle} from "hardhat";
 import {expect, use} from 'chai'
 import {BEP20Mintable, GloryICO, GloryICOTest} from "../typeChain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {MerkleTree} from "merkletreejs";
+import keccak256 from "keccak256";
+import * as fs from "fs";
 
 describe("Glory ICO", () => {
     let deployer: any;
@@ -56,6 +59,28 @@ describe("Glory ICO", () => {
             expect((await gloryICO.getDepositedAmount(deployer.address)).toString()).eq(toWei('500'))
             await gloryICO.registerForWhitelist(toWei('700'))
             expect((await gloryICO.getDepositedAmount(deployer.address)).toString()).eq(toWei('1200'))
+        })
+    })
+
+    describe("set whitelist and verify whitelist", async () => {
+        it("should set merkle root and verify whitelist address success", async () => {
+            let whitelistAddress;
+            try {
+                whitelistAddress = fs.readFileSync('./whitelistAddresses.txt', 'utf8').toString().split("\n")
+            }catch (err) {
+                console.log(err)
+            }
+            const leafNodes = whitelistAddress.map(addr => keccak256(addr))
+            const merkleTree = new MerkleTree(leafNodes, keccak256, {sortPairs: true})
+            const buf2hex = x => '0x'+x.toString('hex')
+            const rootHash = merkleTree.getRoot()
+            console.log("root", buf2hex(rootHash))
+            // await gloryICO.setMerkleRoot(rootHash)
+            const proof = merkleTree.getHexProof(keccak256("0x054E82B00098da1B1411Db47803d38178C49cac1"));
+            console.log("proof", proof)
+            console.log((await gloryICO.isWhitelistWinner(proof, user1.address)))
+
+            expect((await gloryICO.isWhitelistWinner(proof, user1.address))).eq(true)
         })
     })
 

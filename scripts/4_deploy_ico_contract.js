@@ -1,5 +1,5 @@
 const { ethers, upgrades } = require("hardhat");
-const {verifyContract} = require("./utils");
+const {verifyContract} = require("../../../my_workspace/lucky-fair/scripts/utils");
 
 async function main() {
     // Upgrading

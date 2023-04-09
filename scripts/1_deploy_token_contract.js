@@ -1,5 +1,5 @@
 const { ethers, upgrades } = require("hardhat");
-const {verifyContract} = require("./utils");
+const {verifyContract} = require("../../../my_workspace/lucky-fair/scripts/utils");
 
 async function main() {
     // Upgrading
@@ -7,7 +7,7 @@ async function main() {
     const deployTx = await bep20Mintable.deploy('Glory', 'GLR')
     await deployTx.deployed()
     console.log("Glory address", deployTx.address)
-    await verifyContract(deployTx.address, ['GLory', 'GLR'])
+    await verifyContract(deployTx.address, ['Glory', 'GLR'])
 }
 
 main();

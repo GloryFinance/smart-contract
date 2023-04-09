@@ -150,6 +150,7 @@ contract GloryICO is
         uint256 depositedAmount = userInfos[userAddress].depositedAmount;
         require(depositedAmount != 0, "invalid withdraw amount");
         userInfos[userAddress].depositedAmount = 0;
+        userInfos[userAddress].hasPurchased = true;
         usdt.safeTransfer(userAddress, depositedAmount);
 
         emit Withdraw(userAddress, depositedAmount);
