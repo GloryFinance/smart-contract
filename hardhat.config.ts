@@ -7,7 +7,7 @@ require("@openzeppelin/hardhat-upgrades");
 require("@typechain/hardhat");
 
 module.exports = {
-    defaultNetwork: "hardhat",
+    defaultNetwork: "bsc",
 
     networks: {
         localhost: {
@@ -43,12 +43,39 @@ module.exports = {
                     },
                 },
             },
+            {
+                version: "0.8.0",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 200,
+                    },
+                },
+            },
+            {
+                version: "0.5.16",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 200,
+                    },
+                },
+            },
+            {
+                version: "0.6.6",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 200,
+                    },
+                },
+            }
         ]
     },
     etherscan: {
         apiKey: {
             bsc: 'UXFZRYWHB141CX97CPECWH9V7E9QSPHUF6',
-            bscTestnet: 'UXFZRYWHB141CX97CPECWH9V7E9QSPHUF6'
+            // bscTestnet: 'UXFZRYWHB141CX97CPECWH9V7E9QSPHUF6'
         },
     },
     typechain: {
