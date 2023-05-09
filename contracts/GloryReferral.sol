@@ -15,19 +15,26 @@ contract GloryReferral is IGloryReferral, Ownable {
     mapping(address => uint256) public totalReferralCommissions; // referrer address => total referral commissions
 
     event ReferralRecorded(address indexed user, address indexed referrer);
-    event ReferralCommissionRecorded(address indexed referrer, uint256 commission);
+    event ReferralCommissionRecorded(
+        address indexed referrer,
+        uint256 commission
+    );
     event OperatorUpdated(address indexed operator, bool indexed status);
 
-    modifier onlyOperator {
+    modifier onlyOperator() {
         require(operators[msg.sender], "Operator: caller is not the operator");
         _;
     }
 
-    function recordReferral(address _user, address _referrer) public override onlyOperator {
-        if (_user != address(0)
-        && _referrer != address(0)
-        && _user != _referrer
-            && referrers[_user] == address(0)
+    function recordReferral(
+        address _user,
+        address _referrer
+    ) public override onlyOperator {
+        if (
+            _user != address(0) &&
+            _referrer != address(0) &&
+            _user != _referrer &&
+            referrers[_user] == address(0)
         ) {
             referrers[_user] = _referrer;
             referralsCount[_referrer] += 1;
@@ -35,7 +42,10 @@ contract GloryReferral is IGloryReferral, Ownable {
         }
     }
 
-    function recordReferralCommission(address _referrer, uint256 _commission) public override onlyOperator {
+    function recordReferralCommission(
+        address _referrer,
+        uint256 _commission
+    ) public override onlyOperator {
         if (_referrer != address(0) && _commission > 0) {
             totalReferralCommissions[_referrer] += _commission;
             emit ReferralCommissionRecorded(_referrer, _commission);
@@ -43,23 +53,32 @@ contract GloryReferral is IGloryReferral, Ownable {
     }
 
     // Get the referrer address that referred the user
-    function getReferrer(address _user) public override view returns (address) {
+    function getReferrer(address _user) public view override returns (address) {
         return referrers[_user];
     }
 
     // Get the referrer total commission
-    function getReferrerTotalCommission(address _referrer) public override view returns (uint256) {
+    function getReferrerTotalCommission(
+        address _referrer
+    ) public view override returns (uint256) {
         return totalReferralCommissions[_referrer];
     }
 
     // Update the status of the operator
-    function updateOperator(address _operator, bool _status) external onlyOwner {
+    function updateOperator(
+        address _operator,
+        bool _status
+    ) external onlyOwner {
         operators[_operator] = _status;
         emit OperatorUpdated(_operator, _status);
     }
 
     // Owner can drain tokens that are sent here by mistake
-    function drainBEP20Token(IERC20 _token, uint256 _amount, address _to) external onlyOwner {
+    function drainBEP20Token(
+        IERC20 _token,
+        uint256 _amount,
+        address _to
+    ) external onlyOwner {
         _token.safeTransfer(_to, _amount);
     }
 }

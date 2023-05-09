@@ -53,8 +53,15 @@ contract GloryToken is ERC20, Ownable, Pausable {
     }
 
     // mint initial token for marketing, liquidity and OG airdrop
-    function mintInitialSupply(address _receiver, uint256 _amount) external onlyOwner {
-        require(initialSupplyMinted + _amount <= COMPANY_RESERVE_AMOUNT + LIQUIDITY_AMOUNT + OG_AIRDROP_AMOUNT, "exceeds max initial supply");
+    function mintInitialSupply(
+        address _receiver,
+        uint256 _amount
+    ) external onlyOwner {
+        require(
+            initialSupplyMinted + _amount <=
+                COMPANY_RESERVE_AMOUNT + LIQUIDITY_AMOUNT + OG_AIRDROP_AMOUNT,
+            "exceeds max initial supply"
+        );
         _mint(_receiver, _amount);
     }
 
