@@ -12,6 +12,7 @@ contract GloryTreasury is Ownable {
     uint256 public baseMintAmount = 1_000_000 * 10 ** 18;
 
     modifier onlyCounterParty() {
+        // TODO need to add contract GloryAggregator
         require(gloryStakingManager == msg.sender, "not authorized");
         _;
     }

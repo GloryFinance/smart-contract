@@ -76,9 +76,12 @@ contract GloryStakingManager is
     IGloryTreasury public gloryTreasury;
     IGGlory public gGlory;
     IERC20 public usdt;
+    IERC20 public wbnb;
     // TESTNET
     IUniswapV2Router02 public router;
     IUniswapV2Factory public factory;
+    // Glory referral contract address.
+    IGloryReferral public gloryReferral;
 
     // Dev address.
     address public devAddress;
@@ -105,19 +108,29 @@ contract GloryStakingManager is
     uint16 public basePartition;
 
     uint256 public stakingMinted;
+    uint256 public referralMinted;
 
-    // Glory referral contract address.
-    IGloryReferral public gloryReferral;
-    // Referral commission rate in basis points.
+    // Referral commission rate in basis points (10000).
     uint16 public referralCommissionRate;
     // Max referral commission rate: 10%.
     uint16 public constant MAXIMUM_REFERRAL_COMMISSION_RATE = 1000;
+
+    // Harvest fee rate in basis points (10000).
+    uint16 public harvestFeeRate;
+    // Max harvest fee rate: 10%.
+    uint256 public constant MAXIMUM_HARVEST_FEE_RATE = 1000;
+
+    // Withdraw fee rate in basis points (10000).
+    uint16 public withdrawFeeRate;
+    // Max withdraw fee rate: 10%.
+    uint256 public constant MAXIMUM_WITHDRAW_FEE_RATE = 1000;
 
     uint256 constant USDT_GLR_PID = 0;
     uint256 constant BNB_GLR_PID = 1;
 
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event Harvest(uint256 pid, address user, uint256 amount);
     event EmergencyWithdraw(
         address indexed user,
         uint256 indexed pid,
@@ -177,18 +190,17 @@ contract GloryStakingManager is
         gloryPerBlock = _gloryPerBlock;
         basePartition = to16(_basePartition);
 
-        // Testnet
-        router = IUniswapV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1);
-        factory = IUniswapV2Factory(0x6725F303b657a9451d8BA641348b6761A6CC7a17);
-
         // Mainnet
-        //        router = IUniswapV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1);
-        //        factory = IUniswapV2Factory(0x6725F303b657a9451d8BA641348b6761A6CC7a17);
+        router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        factory = IUniswapV2Factory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
+
         MAXIMUM_HARVEST_INTERVAL = 14 days;
         BONUS_MULTIPLIER = 1;
         MAX_STAKING_ALLOCATION = 105_000_000 * 10 ** 18;
         totalAllocPoint = 0;
-        referralCommissionRate = 100;
+        referralCommissionRate = 500; // 5%
+        harvestFeeRate = 100; // 1%
+        withdrawFeeRate = 100; // 1%
 
         devAddress = msg.sender;
         feeAddress = msg.sender;
@@ -297,7 +309,7 @@ contract GloryStakingManager is
             if (pool.sumOfFactors != 0) {
                 accGloryPerFactorShare += ((gloryReward *
                     (1e12) *
-                    (1000 - basePartition)) / (pool.sumOfFactors * 1000));
+                    (1000 - memBasePartition)) / (pool.sumOfFactors * 1000));
             }
         }
         uint256 pending = ((user.amount *
@@ -379,14 +391,14 @@ contract GloryStakingManager is
         uint256 _amount,
         address _referrer
     ) public nonReentrant {
-        _deposit(_pid, _amount, _referrer);
+        _deposit(_pid, _amount, _referrer, true);
     }
 
     function approve() public {
         glory.approve(address(router), type(uint256).max);
         usdt.approve(address(router), type(uint256).max);
         getUsdSwappingPair().approve(address(router), type(uint256).max);
-        getBnbSwappingPair().approve(address(router), type(uint256).max);
+        //        getBnbSwappingPair().approve(address(router), type(uint256).max);
     }
 
     function depositUSD(
@@ -397,7 +409,7 @@ contract GloryStakingManager is
         usdt.transferFrom(msg.sender, address(this), _amount);
         IUniswapV2Pair pair = getUsdSwappingPair();
         (uint256 res0, uint256 res1, ) = pair.getReserves();
-        uint256 amountToSwap = calculateSwapInAmount(res1, _amount);
+        uint256 amountToSwap = calculateSwapInAmount(res0, _amount);
         uint256[] memory amounts = router.getAmountsOut(
             amountToSwap,
             getUsdtGloryRoute()
@@ -427,7 +439,7 @@ contract GloryStakingManager is
             );
             //stake in farms
             // PID of GLR-USDT is 0
-            _deposit(USDT_GLR_PID, liquidityAmount, _referrer);
+            _deposit(USDT_GLR_PID, liquidityAmount, _referrer, false);
         }
     }
 
@@ -442,17 +454,16 @@ contract GloryStakingManager is
         );
 
         uint256 expectedGloryOut = amounts[1];
-        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amountToSwap}(
-            0,
-            getWbnbGloryRoute(),
-            address(this),
-            block.timestamp
-        );
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{
+            value: amountToSwap
+        }(0, getWbnbGloryRoute(), address(this), block.timestamp);
         uint256 amountLeft = amount.sub(amountToSwap);
         {
             // avoid stack too deep
             // add liquidity
-            (,,uint256 liquidityAmount) = router.addLiquidityETH{value: amountLeft}(
+            (, , uint256 liquidityAmount) = router.addLiquidityETH{
+                value: amountLeft
+            }(
                 address(glory),
                 expectedGloryOut,
                 0,
@@ -462,14 +473,15 @@ contract GloryStakingManager is
             );
             // stake in farms
             // PID of BNB-GLR is 1
-            _deposit(BNB_GLR_PID, liquidityAmount, _referrer);
+            _deposit(BNB_GLR_PID, liquidityAmount, _referrer, false);
         }
     }
 
     function _deposit(
         uint256 _pid,
         uint256 _amount,
-        address _referrer
+        address _referrer,
+        bool _isDepositLP
     ) internal {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -484,6 +496,13 @@ contract GloryStakingManager is
         }
         payOrLockupPendingGlory(_pid);
         if (_amount > 0) {
+            if (_isDepositLP) {
+                pool.lpToken.transferFrom(
+                    address(msg.sender),
+                    address(this),
+                    _amount
+                );
+            }
             if (address(pool.lpToken) == address(glory)) {
                 uint256 transferTax = _amount.mul(100).div(10000);
                 _amount = _amount.sub(transferTax);
@@ -498,12 +517,21 @@ contract GloryStakingManager is
             // update boost factor
             uint256 oldFactor = user.factor;
             user.factor = to128(
-                DSMath.sqrt(user.amount * gGlory.balanceOf(msg.sender), user.amount)
+                DSMath.sqrt(
+                    user.amount * gGlory.balanceOf(msg.sender),
+                    user.amount
+                )
             );
-            pool.sumOfFactors = pool.sumOfFactors + user.factor - to128(oldFactor);
+            pool.sumOfFactors =
+                pool.sumOfFactors +
+                user.factor -
+                to128(oldFactor);
         }
         user.rewardDebt = to128(
-            (user.amount * uint256(pool.accGloryPerShare) + user.factor * pool.accGloryPerFactorShare) / (1e12)
+            (user.amount *
+                uint256(pool.accGloryPerShare) +
+                user.factor *
+                pool.accGloryPerFactorShare) / (1e12)
         );
         emit Deposit(msg.sender, _pid, _amount);
     }
@@ -525,10 +553,20 @@ contract GloryStakingManager is
         payOrLockupPendingGlory(_pid);
         if (_amount > 0) {
             user.amount = user.amount - to128(_amount);
-            pool.lpToken.safeTransfer(address(msg.sender), _amount);
+
+            // charge withdraw fee from user when withdraw
+            uint256 withdrawFeeAmount = _amount.mul(withdrawFeeRate).div(10000);
+            pool.lpToken.safeTransfer(feeAddress, withdrawFeeAmount);
+            pool.lpToken.safeTransfer(
+                address(msg.sender),
+                _amount - withdrawFeeAmount
+            );
         }
         user.rewardDebt = to128(
-            (user.amount * uint256(pool.accGloryPerShare)) / 1e12
+            (user.amount *
+                uint256(pool.accGloryPerShare) +
+                user.factor *
+                pool.accGloryPerFactorShare) / 1e12
         );
         emit Withdraw(msg.sender, _pid, _amount);
     }
@@ -539,7 +577,10 @@ contract GloryStakingManager is
         uint256 usdtPid = USDT_GLR_PID;
         PoolInfo storage pool = poolInfo[usdtPid];
         UserInfo storage user = userInfo[usdtPid][msg.sender];
-        require(getReserveInAmount1ByLP(user.amount) >= _amount, "withdraw exceeds USDT balance");
+        require(
+            getReserveInAmount1ByLP(user.amount) >= _amount,
+            "withdraw exceeds USDT balance"
+        );
         uint256 lpAmount = getLPTokenByAmount1(_amount);
         updatePool(usdtPid);
         payOrLockupPendingGlory(usdtPid);
@@ -555,10 +596,28 @@ contract GloryStakingManager is
                 address(this),
                 block.timestamp
             );
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountA, 0, getGloryUsdtRoute(), address(this), block.timestamp);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                amountA,
+                0,
+                getGloryUsdtRoute(),
+                address(this),
+                block.timestamp
+            );
         }
+        user.rewardDebt = to128(
+            (user.amount *
+                uint256(pool.accGloryPerShare) +
+                user.factor *
+                pool.accGloryPerFactorShare) / 1e12
+        );
         uint256 usdtBalanceAfterSwap = usdt.balanceOf(address(this));
-        usdt.transfer(msg.sender, usdtBalanceAfterSwap-usdtBalanceBeforeSwap);
+        uint256 exactWithdrawAmount = usdtBalanceAfterSwap -
+            usdtBalanceBeforeSwap;
+        uint256 withdrawFeeAmount = exactWithdrawAmount
+            .mul(withdrawFeeRate)
+            .div(10000);
+        usdt.transfer(feeAddress, withdrawFeeAmount);
+        usdt.transfer(msg.sender, exactWithdrawAmount - withdrawFeeAmount);
     }
 
     // Withdraw LP then swap it into bnb, only apply to BNB-GLR farm, pid = 1
@@ -567,7 +626,10 @@ contract GloryStakingManager is
         uint256 bnbPid = BNB_GLR_PID;
         PoolInfo storage pool = poolInfo[bnbPid];
         UserInfo storage user = userInfo[bnbPid][msg.sender];
-        require(getReserveInBnbByLP(user.amount) >= _amount, "withdraw exceeds WBNB balance");
+        require(
+            getReserveInBnbByLP(user.amount) >= _amount,
+            "withdraw exceeds WBNB balance"
+        );
         uint256 lpAmount = getLPTokenByBnb(_amount);
         updatePool(bnbPid);
         payOrLockupPendingGlory(bnbPid);
@@ -582,14 +644,33 @@ contract GloryStakingManager is
                 address(this),
                 block.timestamp
             );
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(amountA, 0, getGloryWbnbRoute(), address(this), block.timestamp);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                amountA,
+                0,
+                getGloryWbnbRoute(),
+                address(this),
+                block.timestamp
+            );
         }
         uint256 bnbBalanceAfterSwap = address(this).balance;
-        uint256 exactWithdrawAmount = bnbBalanceAfterSwap - bnbBalanceBeforeSwap;
-        msg.sender.call{value: exactWithdrawAmount}("");
+        uint256 exactWithdrawAmount = bnbBalanceAfterSwap -
+            bnbBalanceBeforeSwap;
+        user.rewardDebt = to128(
+            (user.amount *
+                uint256(pool.accGloryPerShare) +
+                user.factor *
+                pool.accGloryPerFactorShare) / 1e12
+        );
+        uint256 withdrawFeeAmount = exactWithdrawAmount
+            .mul(withdrawFeeRate)
+            .div(10000);
+        feeAddress.call{value: withdrawFeeAmount}("");
+        msg.sender.call{value: (exactWithdrawAmount - withdrawFeeAmount)}("");
     }
 
-    function getReserveInAmount1ByLP(uint256 lp) public view returns (uint256 amount) {
+    function getReserveInAmount1ByLP(
+        uint256 lp
+    ) public view returns (uint256 amount) {
         IUniswapV2Pair pair = getUsdSwappingPair();
         uint256 balance0 = glory.balanceOf(address(pair));
         uint256 balance1 = usdt.balanceOf(address(pair));
@@ -600,7 +681,9 @@ contract GloryStakingManager is
         amount = amount1.add(amount0.mul(balance1).div(balance0));
     }
 
-    function getReserveInBnbByLP(uint256 lp) public view returns (uint256 amount) {
+    function getReserveInBnbByLP(
+        uint256 lp
+    ) public view returns (uint256 amount) {
         IUniswapV2Pair pair = getBnbSwappingPair();
         uint256 balance0 = glory.balanceOf(address(pair));
         uint256 balance1 = wbnb.balanceOf(address(pair));
@@ -611,14 +694,18 @@ contract GloryStakingManager is
         amount = amount1.add(amount0.mul(balance1).div(balance0));
     }
 
-    function getLPTokenByAmount1(uint256 amount) public view returns (uint256 lpNeeded) {
+    function getLPTokenByAmount1(
+        uint256 amount
+    ) public view returns (uint256 lpNeeded) {
         IUniswapV2Pair pair = getUsdSwappingPair();
         (, uint256 res1, ) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
         lpNeeded = amount.mul(totalSupply).div(res1).div(2);
     }
 
-    function getLPTokenByBnb(uint256 amount) public view returns (uint256 lpNeeded) {
+    function getLPTokenByBnb(
+        uint256 amount
+    ) public view returns (uint256 lpNeeded) {
         IUniswapV2Pair pair = getBnbSwappingPair();
         (, uint256 res1, ) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
@@ -650,7 +737,11 @@ contract GloryStakingManager is
         }
 
         uint256 pending = to128(
-            ((uint256(user.amount) * uint256(pool.accGloryPerShare) + uint256(user.factor) * pool.accGloryPerFactorShare) / 1e12) + user.pendingGlory -
+            ((uint256(user.amount) *
+                uint256(pool.accGloryPerShare) +
+                uint256(user.factor) *
+                pool.accGloryPerFactorShare) / 1e12) +
+                user.pendingGlory -
                 uint256(user.rewardDebt)
         );
         user.pendingGlory = 0;
@@ -668,8 +759,15 @@ contract GloryStakingManager is
                 );
 
                 // send rewards
-                safeGloryTransfer(msg.sender, totalRewards);
-                payReferralCommission(msg.sender, totalRewards);
+                uint256 harvestFee = totalRewards.mul(harvestFeeRate).div(
+                    10000
+                );
+                uint256 totalRewardsAfterChargedFee = totalRewards - harvestFee;
+                safeGloryTransfer(feeAddress, harvestFee);
+
+                safeGloryTransfer(msg.sender, totalRewardsAfterChargedFee);
+                emit Harvest(_pid, msg.sender, totalRewardsAfterChargedFee);
+                payReferralCommission(msg.sender, totalRewardsAfterChargedFee);
             }
         } else if (pending > 0) {
             user.rewardLockedUp = to128(uint256(user.rewardLockedUp) + pending);
@@ -717,6 +815,24 @@ contract GloryStakingManager is
         gloryReferral = _gloryReferral;
     }
 
+    // Update harvest fee rate by the owner
+    function setHarvestFeeRate(uint16 _harvestFeeRate) public onlyOwner {
+        require(
+            _harvestFeeRate <= MAXIMUM_HARVEST_FEE_RATE,
+            "setHarvestFeeRate: invalid harvest fee rate basis points"
+        );
+        harvestFeeRate = _harvestFeeRate;
+    }
+
+    // Update referral commission rate by the owner
+    function setWithdrawFeeRate(uint16 _withdrawFeeRate) public onlyOwner {
+        require(
+            _withdrawFeeRate <= MAXIMUM_WITHDRAW_FEE_RATE,
+            "setWithdrawFeeRate: invalid withdraw fee rate basis points"
+        );
+        withdrawFeeRate = _withdrawFeeRate;
+    }
+
     // Update referral commission rate by the owner
     function setReferralCommissionRate(
         uint16 _referralCommissionRate
@@ -728,21 +844,30 @@ contract GloryStakingManager is
         referralCommissionRate = _referralCommissionRate;
     }
 
+    function setRouterAndFactory() public onlyOwner {
+        // Mainnet
+        router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        factory = IUniswapV2Factory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
+    }
+
     // Pay referral commission to the referrer who referred this user.
     function payReferralCommission(address _user, uint256 _pending) internal {
         uint256 memReferralCommissionRate = referralCommissionRate;
         if (
-            address(gloryReferral) != address(0) && memReferralCommissionRate > 0
+            address(gloryReferral) != address(0) &&
+            memReferralCommissionRate > 0
         ) {
             address referrer = gloryReferral.getReferrer(_user);
-            uint256 commissionAmount = _pending.mul(memReferralCommissionRate).div(
-                10000
-            );
+            uint256 commissionAmount = _pending
+                .mul(memReferralCommissionRate)
+                .div(10000);
 
             if (referrer != address(0) && commissionAmount > 0) {
                 if (glory.balanceOf(address(this)) < commissionAmount) {
                     gloryTreasury.mint(address(this), commissionAmount);
                 }
+                referralMinted += commissionAmount;
+                stakingMinted += commissionAmount;
                 glory.transfer(referrer, commissionAmount);
                 gloryReferral.recordReferralCommission(
                     referrer,
@@ -788,7 +913,10 @@ contract GloryStakingManager is
         return (bonusTokenAddress, bonusTokenSymbol);
     }
 
-    function updateFactor(address _user, uint256 _newGGloryBalance) external onlyGGlory {
+    function updateFactor(
+        address _user,
+        uint256 _newGGloryBalance
+    ) external onlyGGlory {
         // loop over each pool : beware gas cost!
         uint256 length = poolInfo.length;
 
@@ -805,10 +933,20 @@ contract GloryStakingManager is
             // first, update pool
             updatePool(pid);
             // calculate pending
-            uint256 pending = ((uint256(user.amount) *
-                pool.accGloryPerShare +
-                uint256(user.factor) *
-                pool.accGloryPerFactorShare) / 1e12) - user.rewardDebt;
+            uint256 pendingWithoutRewardDebt =  ((uint256(user.amount) *
+            pool.accGloryPerShare +
+            uint256(user.factor) *
+            pool.accGloryPerFactorShare) / 1e12);
+            uint256 pending;
+            if (pendingWithoutRewardDebt > user.rewardDebt) {
+                pending = pendingWithoutRewardDebt - user.rewardDebt;
+            } else {
+                revert("overflow");
+            }
+//            uint256 pending = ((uint256(user.amount) *
+//                pool.accGloryPerShare +
+//                uint256(user.factor) *
+//                pool.accGloryPerFactorShare) / 1e12) - user.rewardDebt;
             // increase pendingWom
             user.pendingGlory += to128(pending);
             // get oldFactor
@@ -846,12 +984,13 @@ contract GloryStakingManager is
         paths[1] = address(usdt);
     }
 
-    function getWbnbGloryRoute() private view returns(address[] memory paths) {
+    function getWbnbGloryRoute() private view returns (address[] memory paths) {
         paths = new address[](2);
         paths[0] = address(wbnb);
         paths[1] = address(glory);
     }
-    function getGloryWbnbRoute() private view returns(address[] memory paths) {
+
+    function getGloryWbnbRoute() private view returns (address[] memory paths) {
         paths = new address[](2);
         paths[0] = address(glory);
         paths[1] = address(wbnb);
@@ -887,10 +1026,5 @@ contract GloryStakingManager is
     function to96(uint256 val) internal pure returns (uint96) {
         if (val > type(uint96).max) revert("uint96 overflow");
         return uint96(val);
-    }
-
-    IERC20 public wbnb;
-    function updateWbnb(address _wbnbAddress) public onlyOwner {
-        wbnb = IERC20(_wbnbAddress);
     }
 }

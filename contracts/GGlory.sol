@@ -11,6 +11,7 @@ import "./libraries/LogExpMath.sol";
 import "./interfaces/IWhitelist.sol";
 import "./interfaces/IStakingManager.sol";
 import "./interfaces/IGGlory.sol";
+import "./interfaces/IGloryLocked.sol";
 import "./VeERC20Upgradeable.sol";
 
 interface IG {
@@ -34,6 +35,9 @@ contract GGlory is
 
     /// @notice the glory token
     IERC20 public glory;
+
+    /// @notice the glory locked contract
+    IGloryLocked public gloryLocked;
 
     /// @notice the stakingManager contract
     IStakingManager public stakingManager;
@@ -86,11 +90,7 @@ contract GGlory is
         _;
     }
 
-    function initialize(
-        IERC20 _glory,
-        IStakingManager _stakingManager
-    ) external initializer {
-        require(address(_stakingManager) != address(0), "zero address");
+    function initialize(IERC20 _glory) external initializer {
         require(address(_glory) != address(0), "zero address");
 
         // Initialize gGlory
@@ -99,20 +99,16 @@ contract GGlory is
         __ReentrancyGuard_init_unchained();
         __Pausable_init_unchained();
 
-        stakingManager = _stakingManager;
         glory = _glory;
 
         // Note: one should pay attention to storage collision
         maxBreedingLength = 10000;
-        minLockDays = 7;
-        maxLockDays = 1461;
+        minLockDays = 30;
+        maxLockDays = 366;
     }
 
     function _verifyVoteIsEnough(address _user) internal view {
-        require(
-            balanceOf(_user) >= usedVote[_user],
-            "GGlory: not enough vote"
-        );
+        require(balanceOf(_user) >= usedVote[_user], "GGlory: not enough vote");
     }
 
     /**
@@ -137,6 +133,10 @@ contract GGlory is
         require(address(_stakingManager) != address(0), "zero address");
         stakingManager = _stakingManager;
         emit SetStakingManager(address(_stakingManager));
+    }
+
+    function setGloryLocked(IGloryLocked _gloryLocked) external onlyOwner {
+        gloryLocked = _gloryLocked;
     }
 
     /// @notice sets voter contract address
@@ -288,19 +288,26 @@ contract GGlory is
         gGloryAmount = _expectedGGloryAmount(amount, lockDays);
 
         if (unlockTime > uint256(type(uint48).max)) revert GGLORY_OVERFLOW();
-        if (gGloryAmount > uint256(type(uint104).max))
-            revert GGLORY_OVERFLOW();
+        if (gGloryAmount > uint256(type(uint104).max)) revert GGLORY_OVERFLOW();
 
         users[msg.sender].breedings.push(
-            Breeding(
-                uint48(unlockTime),
-                uint104(amount),
-                uint104(gGloryAmount)
-            )
+            Breeding(uint48(unlockTime), uint104(amount), uint104(gGloryAmount))
         );
 
+        uint256 userLockedBalance = gloryLocked.balanceOf(msg.sender);
+        if (userLockedBalance > 0) {
+            if (amount >= userLockedBalance) {
+                gloryLocked.stakeGlory(msg.sender, userLockedBalance);
+                amount -= userLockedBalance;
+            } else {
+                gloryLocked.stakeGlory(msg.sender, amount);
+                amount = 0;
+            }
+        }
         // Request Glory from user
-        glory.safeTransferFrom(msg.sender, address(this), amount);
+        if (amount > 0) {
+            glory.safeTransferFrom(msg.sender, address(this), amount);
+        }
 
         // event Mint(address indexed user, uint256 indexed amount) is emitted
         _mint(msg.sender, gGloryAmount);
@@ -373,10 +380,7 @@ contract GGlory is
             users[msg.sender].breedings[slot].gGloryAmount
         );
         uint256 newUnlockTime = block.timestamp + 1 days * lockDays;
-        newGGloryAmount = _expectedGGloryAmount(
-            originalGloryAmount,
-            lockDays
-        );
+        newGGloryAmount = _expectedGGloryAmount(originalGloryAmount, lockDays);
 
         if (newUnlockTime > type(uint48).max) revert GGLORY_OVERFLOW();
         if (newGGloryAmount > type(uint104).max) revert GGLORY_OVERFLOW();
